@@ -36,11 +36,11 @@ void cat(int, FILE *);
 void cannot_execute(int);
 void error_die(const char *);
 void execute_cgi(int, const char *, const char *, const char *);
-int get_line(int, char *, int);
+int  get_line(int, char *, int);
 void headers(int, const char *);
 void not_found(int);
 void serve_file(int, const char *);
-int startup(u_short *);
+int  startup(u_short *);
 void unimplemented(int);
 
 /**********************************************************************/
@@ -359,6 +359,8 @@ int get_line(int sock, char *buf, int size)
         /*一次仅接收一个字节*/
         n = recv(sock, &c, 1, 0);
         /* DEBUG printf("%02X\n", c); */
+        printf("%c", c); 
+        fflush(stdout);
         if (n > 0)
         {
             /*收到 \r 则继续接收下个字节，因为换行符可能是 \r\n */
@@ -367,6 +369,8 @@ int get_line(int sock, char *buf, int size)
                 /*使用 MSG_PEEK 标志使下一次读取依然可以得到这次读取的内容，可认为接收窗口不滑动*/
                 n = recv(sock, &c, 1, MSG_PEEK);
                 /* DEBUG printf("%02X\n", c); */
+                printf("%c", c); 
+                fflush(stdout);
                 /*但如果是换行符则把它吸收掉*/
                 if ((n > 0) && (c == '\n'))
                     recv(sock, &c, 1, 0);
