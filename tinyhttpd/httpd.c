@@ -26,15 +26,18 @@
  *
  *      [root@localhost tinyhttpd]# ./server-http 
  *      httpd running on port 47547
- *
  *      client:
- *          [root@localhost ~]# telnet  192.168.117.131  47547
+ *          [root@localhost tinyhttpd]# telnet  192.168.117.131 41860
  *          Trying 192.168.117.131...
  *          Connected to 192.168.117.131.
  *          Escape character is '^]'.
- *          GET /test.html HTTP/1.0         // 要注意这里敲了2个回车!  还需要主要的是要'/test.html',这个文件需要放到htdocs才能被访问到。
+ *          GET /test.html HTTP/1.1     // 要注意这里敲了2个回车!  还需要主要的是要'/test.html',这个文件需要放到htdocs才能被访问到。
  *
  *          HTTP/1.0 200 OK
+ *          Server: jdbhttpd/0.1.0
+ *          Content-Type: text/html
+ *
+ *          1111111111111
  *          Connection closed by foreign host.
  *          [root@localhost ~]# 
  *
@@ -155,14 +158,14 @@ void *accept_request(void * tclient)
     if (path[strlen(path) - 1] == '/')      /// 如果请求的是目录   或者说请求是这样的 GET / HTTP/1.0  
         strcat(path, "index.html");         /// 拼接字符串 path = htdocs/index.html
     /*根据路径找到对应文件 */
-    if (stat(path, &st) == -1) {
+    if (stat(path, &st) == -1) {        ///如果没有找到对应的文件( 文件不存在stat就会返回-1 )
         /*把所有 headers 的信息都丢弃*/
         while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
             numchars = get_line(client, buf, sizeof(buf));
         /*回应客户端找不到*/
         not_found(client);
     }
-    else
+    else        //s/ 找到文件!
     {
         /*如果是个目录，则默认使用该目录下 index.html 文件*/
         if ((st.st_mode & S_IFMT) == S_IFDIR)
