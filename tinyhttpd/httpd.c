@@ -12,6 +12,36 @@
  *  4) Uncomment the line that runs accept_request().
  *  5) Remove -lsocket from the Makefile.
  */
+
+/**
+ * @file httpd.c
+ * @brief 
+ * @author      renbin.guo added comment  
+ * @version 
+ * @date 2017-07-07
+ *
+ * @usage:
+ *
+ *      server:
+ *
+ *      [root@localhost tinyhttpd]# ./server-http 
+ *      httpd running on port 47547
+ *
+ *      client:
+ *          [root@localhost ~]# telnet  192.168.117.131  47547
+ *          Trying 192.168.117.131...
+ *          Connected to 192.168.117.131.
+ *          Escape character is '^]'.
+ *          GET /test.html HTTP/1.0         // 要注意这里敲了2个回车!  还需要主要的是要'/test.html',这个文件需要放到htdocs才能被访问到。
+ *
+ *          HTTP/1.0 200 OK
+ *          Connection closed by foreign host.
+ *          [root@localhost ~]# 
+ *
+ *
+ */
+
+
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -67,11 +97,12 @@ void *accept_request(void * tclient)
     /*把客户端的请求方法存到 method 数组*/
     while (!ISspace(buf[j]) && (i < sizeof(method) - 1))
     {
-        method[i] = buf[j];
+        method[i] = buf[j]; 
         i++; j++;
     }
     method[i] = '\0';
-
+    printf("method = %s\n",method);    // renbin.guo added 2017-07-06
+    
     /*如果既不是 GET 又不是 POST 则无法处理 */
     if (strcasecmp(method, "GET") && strcasecmp(method, "POST"))
     {
@@ -95,6 +126,8 @@ void *accept_request(void * tclient)
     }
     url[i] = '\0';
 
+    printf("url = %s\n",url);    // renbin.guo added 2017-07-07
+
     /*处理 GET 方法*/
     if (strcasecmp(method, "GET") == 0)
     {
@@ -109,14 +142,18 @@ void *accept_request(void * tclient)
             cgi = 1;
             *query_string = '\0';
             query_string++;
+            printf("### get to here !!\n");  // renbin.guo added 2017-07-07
         }
     }
 
     /*格式化 url 到 path 数组，html 文件都在 htdocs 中*/
+    // 所以再命令行请求的格式必须是  GET /test.html HTTP/1.0    注意/test.html必须有'/'
     sprintf(path, "htdocs%s", url);
+
+    
     /*默认情况为 index.html */
-    if (path[strlen(path) - 1] == '/')
-        strcat(path, "index.html");
+    if (path[strlen(path) - 1] == '/')      /// 如果请求的是目录   或者说请求是这样的 GET / HTTP/1.0  
+        strcat(path, "index.html");         /// 拼接字符串 path = htdocs/index.html
     /*根据路径找到对应文件 */
     if (stat(path, &st) == -1) {
         /*把所有 headers 的信息都丢弃*/
@@ -353,14 +390,15 @@ int get_line(int sock, char *buf, int size)
     char c = '\0';
     int n;
 
+    printf("[get_line ] begin\n");
     /*把终止条件统一为 \n 换行符，标准化 buf 数组*/
     while ((i < size - 1) && (c != '\n'))
     {
         /*一次仅接收一个字节*/
         n = recv(sock, &c, 1, 0);
         /* DEBUG printf("%02X\n", c); */
-        printf("%c", c); 
-        fflush(stdout);
+        printf("%c", c);    //renbin.guo added 2017-07-07   
+        fflush(stdout);     //renbin.guo added 2017-07-07  printf按行缓冲，所以这里需要刷新(如果末尾不加换行符的话)
         if (n > 0)
         {
             /*收到 \r 则继续接收下个字节，因为换行符可能是 \r\n */
@@ -369,8 +407,8 @@ int get_line(int sock, char *buf, int size)
                 /*使用 MSG_PEEK 标志使下一次读取依然可以得到这次读取的内容，可认为接收窗口不滑动*/
                 n = recv(sock, &c, 1, MSG_PEEK);
                 /* DEBUG printf("%02X\n", c); */
-                printf("%c", c); 
-                fflush(stdout);
+                printf("%c", c);        //renbin.guo added 2017-07-07
+                fflush(stdout);         //renbin.guo added 2017-07-07
                 /*但如果是换行符则把它吸收掉*/
                 if ((n > 0) && (c == '\n'))
                     recv(sock, &c, 1, 0);
@@ -385,7 +423,7 @@ int get_line(int sock, char *buf, int size)
             c = '\n';
     }
     buf[i] = '\0';
-
+    printf("[get_line ] end\n");
     /*返回 buf 数组大小*/
     return(i);
 }
