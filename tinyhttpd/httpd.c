@@ -30,7 +30,7 @@
 
 #define SERVER_STRING "Server: jdbhttpd/0.1.0\r\n"
 
-void accept_request(int);
+void *accept_request(void *);  
 void bad_request(int);
 void cat(int, FILE *);
 void cannot_execute(int);
@@ -48,8 +48,9 @@ void unimplemented(int);
  * return.  Process the request appropriately.
  * Parameters: the socket connected to the client */
 /**********************************************************************/
-void accept_request(int client)
+void *accept_request(void * tclient)  
 {
+    int client = *(int *)tclient;  
     char buf[1024];
     int numchars;
     char method[255];
@@ -75,7 +76,7 @@ void accept_request(int client)
     if (strcasecmp(method, "GET") && strcasecmp(method, "POST"))
     {
         unimplemented(client);
-        return;
+        return NULL;  
     }
 
     /* POST 的时候开启 cgi */
@@ -140,6 +141,7 @@ void accept_request(int client)
 
     /*断开与客户端的连接（HTTP 特点：无连接）*/
     close(client);
+    return NULL;  
 }
 
 /**********************************************************************/
@@ -493,7 +495,7 @@ int startup(u_short *port)
     /*如果当前指定端口是 0，则动态随机分配一个端口*/
     if (*port == 0)  /* if dynamically allocating a port */
     {
-        int namelen = sizeof(name);
+        socklen_t namelen = sizeof(name);  
         if (getsockname(httpd, (struct sockaddr *)&name, &namelen) == -1)
             error_die("getsockname");
         *port = ntohs(name.sin_port);
@@ -542,7 +544,7 @@ int main(void)
     u_short port = 0;
     int client_sock = -1;
     struct sockaddr_in client_name;
-    int client_name_len = sizeof(client_name);
+    socklen_t client_name_len = sizeof(client_name);  
     pthread_t newthread;
 
     /*在对应端口建立 httpd 服务*/
@@ -557,7 +559,7 @@ int main(void)
             error_die("accept");
         /*派生新线程用 accept_request 函数处理新请求*/
         /* accept_request(client_sock); */
-        if (pthread_create(&newthread , NULL, accept_request, client_sock) != 0)
+        if (pthread_create(&newthread , NULL, accept_request, (void *)&client_sock) != 0)  
             perror("pthread_create");
     }
 
