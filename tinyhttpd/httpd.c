@@ -29,9 +29,9 @@
  *      client:
  *          [root@localhost tinyhttpd]# telnet  192.168.117.131 41860
  *          Trying 192.168.117.131...
- *          Connected to 192.168.117.131.
+ *          Connected to 192.168.117.131.  GET / HTTP/1.1
  *          Escape character is '^]'.
- *          GET /test.html HTTP/1.1     // 要注意这里敲了2个回车!  还需要主要的是要'/test.html',这个文件需要放到htdocs才能被访问到。
+ *          GET /test.html HTTP/1.1     // 要注意这里敲了2个回车!  还需要注意的是要'/test.html',这个文件需要放到htdocs才能被访问到。
  *
  *          HTTP/1.0 200 OK
  *          Server: jdbhttpd/0.1.0
@@ -41,7 +41,10 @@
  *          Connection closed by foreign host.
  *          [root@localhost ~]# 
  *
- *
+ *  @note :
+                 if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH)    )
+                        cgi = 0;          // renbin.guo modified 这里原本是 cgi = 1;  但是由于我在虚拟机共享目录下普通文件test.html都是可执行的，所以我把它改成0
+                 您运行的时候，要改为1
  */
 
 
@@ -171,17 +174,24 @@ void *accept_request(void * tclient)
         if ((st.st_mode & S_IFMT) == S_IFDIR)
             strcat(path, "/index.html");
       if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH)    )
-          cgi = 1;
+          cgi = 0;          // renbin.guo modified 这里原本是 cgi = 1;  但是由于我在虚拟机共享目录下普通文件都是可执行的，所以我把它改成0
       /*不是 cgi,直接把服务器文件返回，否则执行 cgi */
-      if (!cgi)
+      printf("### path = %s\n",path);
+      if (!cgi){
           serve_file(client, path);
+          printf("### !CGI\n");
+      }
       else
+      {
+          printf("### CGI\n");
           execute_cgi(client, path, method, query_string);
+      }
     }
 
     /*断开与客户端的连接（HTTP 特点：无连接）*/
-    close(client);
-    return NULL;  
+    close(client);          /// 所以我们发送一个请求之后GET /test.html HTTP/1.0，显示完了，就有Connection closed by foreign host
+
+    return NULL;                /// 结束线程。
 }
 
 /**********************************************************************/
@@ -442,15 +452,23 @@ void headers(int client, const char *filename)
     (void)filename;  /* could use filename to determine file type */
 
     /*正常的 HTTP header */
+    printf("### before headers () send 1\n");
     strcpy(buf, "HTTP/1.0 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
+    printf("### headers () send 1\n");
     /*服务器信息*/
     strcpy(buf, SERVER_STRING);
     send(client, buf, strlen(buf), 0);
+    printf("### headers () send 2\n");
+     
     sprintf(buf, "Content-Type: text/html\r\n");
     send(client, buf, strlen(buf), 0);
+    printf("### headers () send 3\n");
+    
     strcpy(buf, "\r\n");
     send(client, buf, strlen(buf), 0);
+
+    printf("### headers () send 4\n");
 }
 
 /**********************************************************************/
@@ -508,8 +526,11 @@ void serve_file(int client, const char *filename)
     {
         /*写 HTTP header */
         headers(client, filename);
+
+        printf(" ### after hearders\n");
         /*复制文件*/
         cat(client, resource);
+        printf(" ### after cat\n");
     }
     fclose(resource);
 }
