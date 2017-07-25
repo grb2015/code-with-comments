@@ -42,8 +42,12 @@
  *          [root@localhost ~]# 
  *
  *  @note :
+ *              对自己的提醒:  
+ *                  如果是在改项目是通过linux 通过vmware和windows共享目录下,则共享目录下所有文件都是可读可写可执行的，所以cgi总是1，即使你访问的只是/index
+ *                  所以如果在是放在共享目录下,则cgi当访问index的时候，要把它改为cgi=0。
+ *
                  if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH)    )
-                        cgi = 0;          // renbin.guo modified 这里原本是 cgi = 1;  但是由于我在虚拟机共享目录下普通文件test.html都是可执行的，所以我把它改成0
+                        cgi = 1;          // renbin.guo modified 这里原本是 cgi = 1;  但是由于我在虚拟机共享目录下普通文件test.html都是可执行的，所以我把它改成0
                  您运行的时候，要改为1
  */
 
@@ -164,7 +168,11 @@ void *accept_request(void * tclient)
     if (stat(path, &st) == -1) {        ///如果没有找到对应的文件( 文件不存在stat就会返回-1 )
         /*把所有 headers 的信息都丢弃*/
         while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
+        {
+            printf("-------in stat-----------\n");
             numchars = get_line(client, buf, sizeof(buf));
+
+        }
         /*回应客户端找不到*/
         not_found(client);
     }
@@ -174,7 +182,7 @@ void *accept_request(void * tclient)
         if ((st.st_mode & S_IFMT) == S_IFDIR)
             strcat(path, "/index.html");
       if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH)    )
-          cgi = 0;          // renbin.guo modified 这里原本是 cgi = 1;  但是由于我在虚拟机共享目录下普通文件都是可执行的，所以我把它改成0
+          cgi = 1;          // renbin.guo modified 这里原本是 cgi = 1;  但是由于我在虚拟机共享目录下普通文件都是可执行的，所以我把它改成0
       /*不是 cgi,直接把服务器文件返回，否则执行 cgi */
       printf("### path = %s\n",path);
       if (!cgi){
@@ -191,6 +199,7 @@ void *accept_request(void * tclient)
     /*断开与客户端的连接（HTTP 特点：无连接）*/
     close(client);          /// 所以我们发送一个请求之后GET /test.html HTTP/1.0，显示完了，就有Connection closed by foreign host
 
+    printf("----thread end !--------------------------------------\n");
     return NULL;                /// 结束线程。
 }
 
@@ -288,7 +297,10 @@ void execute_cgi(int client, const char *path, const char *method, const char *q
     if (strcasecmp(method, "GET") == 0)
         /*把所有的 HTTP header 读取并丢弃*/
         while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
+        {
+            printf("  ----execute_cgi()");
             numchars = get_line(client, buf, sizeof(buf));
+        }
     else    /* POST */
     {
         /* 对 POST 的 HTTP 请求中找出 content_length */
@@ -516,7 +528,10 @@ void serve_file(int client, const char *filename)
     /*读取并丢弃 header */
     buf[0] = 'A'; buf[1] = '\0';
     while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
+    {
+        printf("  ---server_file()\n");
         numchars = get_line(client, buf, sizeof(buf));
+    }
 
     /*打开 sever 的文件*/
     resource = fopen(filename, "r");
@@ -625,6 +640,7 @@ int main(void)
             error_die("accept");
         /*派生新线程用 accept_request 函数处理新请求*/
         /* accept_request(client_sock); */
+        printf(" ------------------------------------new thread !-=-------\n");
         if (pthread_create(&newthread , NULL, accept_request, (void *)&client_sock) != 0)  
             perror("pthread_create");
     }
