@@ -123,6 +123,7 @@ void *accept_request(void * tclient)
 
     /*得到请求的第一行*/
     numchars = get_line(client, buf, sizeof(buf));
+    printf("###[accept_request] numchars = %d ,buf = %s \n",numchars,buf);
     i = 0; j = 0;
     /*把客户端的请求方法存到 method 数组*/
     while (!ISspace(buf[j]) && (i < sizeof(method) - 1))
@@ -186,7 +187,7 @@ void *accept_request(void * tclient)
         strcat(path, "index.html");         /// 拼接字符串 path = htdocs/index.html
     /*根据路径找到对应文件 */
     if (stat(path, &st) == -1) {        ///如果没有找到对应的文件( 文件不存在stat就会返回-1 )
-        /*把所有 headers 的信息都丢弃*/
+        /*把所有 headers 的信息都丢弃*/ ///grb  就是get方法后面的所有行，直接取出来，丢弃
         while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
         {
             printf("-------in stat-----------\n");
@@ -206,8 +207,8 @@ void *accept_request(void * tclient)
       /*不是 cgi,直接把服务器文件返回，否则执行 cgi */
       printf("### path = %s\n",path);
       if (!cgi){
-          serve_file(client, path);
           printf("### !CGI\n");
+          serve_file(client, path);
       }
       else
       {
@@ -372,14 +373,18 @@ void execute_cgi(int client, const char *path, const char *method, const char *q
 
         /* 把 STDOUT 重定向到 cgi_output 的写入端 */
         dup2(cgi_output[1], 1);
+
         /* 把 STDIN 重定向到 cgi_input 的读取端 */
         dup2(cgi_input[0], 0);
+
         /* 关闭 cgi_input 的写入端 和 cgi_output 的读取端 */
         close(cgi_output[0]);
         close(cgi_input[1]);
+
         /*设置 request_method 的环境变量*/
         sprintf(meth_env, "REQUEST_METHOD=%s", method);
         putenv(meth_env);
+
         if (strcasecmp(method, "GET") == 0) {
             /*设置 query_string 的环境变量*/
             sprintf(query_env, "QUERY_STRING=%s", query_string);
@@ -391,9 +396,13 @@ void execute_cgi(int client, const char *path, const char *method, const char *q
             putenv(length_env);
         }
         /*用 execl 运行 cgi 程序*/
+        printf("### before execl color.cgi\n");  /* grb 这句写到标准输出了，然后它被下面的父进程通过read(cgi_output[0]) 读了出来*/
         execl(path, path, NULL);
+        printf("### after  execl color.cgi\n");         /* grb 因为执行了另外一个镜像，所有永远不会执行到这里来 */
+
         exit(0);
     } else {    /* parent */
+
         /* 关闭 cgi_input 的读取端 和 cgi_output 的写入端 */
         close(cgi_output[1]);
         close(cgi_input[0]);
@@ -401,12 +410,21 @@ void execute_cgi(int client, const char *path, const char *method, const char *q
             /*接收 POST 过来的数据*/
             for (i = 0; i < content_length; i++) {
                 recv(client, &c, 1, 0);
+                printf("%c",c );
+
                 /*把 POST 数据写入 cgi_input，现在重定向到 STDIN */
-                write(cgi_input[1], &c, 1);
+                write(cgi_input[1], &c, 1);         /* grb  这里写入的是 color=red ,这个是给color.cgi这个程序的参数 ,接下来我们等待color.cgi处理，处理完后读取处理结果，将结果发给浏览器*/
             }
+        printf("\n------sent core=red to color.cgi -----------------------------------\n");
+
         /*读取 cgi_output 的管道输出到客户端，该管道输入是 STDOUT */
         while (read(cgi_output[0], &c, 1) > 0)
-            send(client, &c, 1, 0);
+        {
+
+                printf("%c",c );
+                send(client, &c, 1, 0);         /* grb 将color.cgi产生的输出数据发送给浏览器 */
+
+        }
 
         /*关闭管道*/
         close(cgi_output[0]);
@@ -486,7 +504,7 @@ void headers(int client, const char *filename)
     /*正常的 HTTP header */
     printf("### before headers () send 1\n");
     strcpy(buf, "HTTP/1.0 200 OK\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(client, buf, strlen(buf), 0);      /* grb 这里直接用send 就可以了!,send系统调用 */
     printf("### headers () send 1\n");
     /*服务器信息*/
     strcpy(buf, SERVER_STRING);
@@ -545,9 +563,10 @@ void serve_file(int client, const char *filename)
     int numchars = 1;
     char buf[1024];
 
-    /*读取并丢弃 header */
-    buf[0] = 'A'; buf[1] = '\0';
-    while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
+    /*读取并丢弃 header */      //grb 客户端发过来的get可能有很多行,我们实际上只处理它的第一行。tinny http功能有限啊!
+    buf[0] = 'A'; 
+    buf[1] = '\0';      /* grb这里初始化为这个有必要吗?不初始化可以吗? */
+    while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */  ///grb 这里之所以要判断'\n'，是因为文件开头有提到，必须按下两个回车键，所以最后一个空行代表get请求结束
     {
         printf("  ---server_file()\n");
         numchars = get_line(client, buf, sizeof(buf));
