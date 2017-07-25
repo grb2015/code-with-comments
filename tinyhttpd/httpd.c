@@ -13,7 +13,7 @@
  *  5) Remove -lsocket from the Makefile.
  */
 
-/**
+/************************************************************************************************************************
  * @file httpd.c
  * @brief 
  * @author      renbin.guo added comment  
@@ -24,10 +24,12 @@
  *
  *      server:
  *
+ *      1.通过telnet发送get命令
+ *
  *      [root@localhost tinyhttpd]# ./server-http 
  *      httpd running on port 47547
  *      client:
- *          [root@localhost tinyhttpd]# telnet  192.168.117.131 41860
+ *          [root@localhost tinyhttpd]# telnet  192.168.117.131 47547
  *          Trying 192.168.117.131...
  *          Connected to 192.168.117.131.  GET / HTTP/1.1
  *          Escape character is '^]'.
@@ -41,15 +43,33 @@
  *          Connection closed by foreign host.
  *          [root@localhost ~]# 
  *
+ *      2.通过浏览器做实验
+ *
+ *      [root@localhost tinyhttpd]# ./server-http 
+ *      httpd running on port 47547
+ *      client:
+ *          在浏览器输入:   127.0.0.1:47547
+ *          然后在弹出的框中输入'yellow'
+ *          你会看过网页的颜色变了
+ *      效果可参考: http://blog.csdn.net/jcjc918/article/details/42129311
+ *      
+ *
+ *
+ *
  *  @note :
- *              对自己的提醒:  
- *                  如果是在改项目是通过linux 通过vmware和windows共享目录下,则共享目录下所有文件都是可读可写可执行的，所以cgi总是1，即使你访问的只是/index
+ *           1.   对自己的提醒:  
+ *                  如果项目是放在linux ,vmware和windows共享目录下,则共享目录下所有文件都是可读可写可执行的，所以cgi总是1，即使你访问的只是/index
  *                  所以如果在是放在共享目录下,则cgi当访问index的时候，要把它改为cgi=0。
  *
                  if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH)    )
                         cgi = 1;          // renbin.guo modified 这里原本是 cgi = 1;  但是由于我在虚拟机共享目录下普通文件test.html都是可执行的，所以我把它改成0
                  您运行的时候，要改为1
- */
+
+            2.  在浏览器中运行的时候，输入'yellow'之后在服务器端的log中我遇到了 Can't locate CGI.pm in @INC'
+                这个需要安装CGI.pm  centos6.5 yum install perl-CGI
+
+            3.  需要修改htdos中的check.cgi 和color.cgi开始第一行的perl位置。我的是在 #!/usr/bin/perl -Tw (可通过whereis perl查看您的perl位置)
+************************************************************************************************************************/
 
 
 #include <stdio.h>
